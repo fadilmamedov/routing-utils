@@ -2,6 +2,8 @@
 
 Small utility allowing to validate route parameters: distance, duration etc.
 
+![Screen-Recording-2023-02-06-at-13 44 41](https://user-images.githubusercontent.com/3175922/216954138-85018cc3-5f10-4ede-8416-b518db2037f7.gif)
+
 ### Running
 
 ##### Without options (interactive session)
