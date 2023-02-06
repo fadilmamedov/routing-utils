@@ -37,4 +37,11 @@ export type Appointment = {
   };
 };
 
+export type RouteAnalysis = {
+  analysis: {
+    total_duration_in_seconds: number;
+    total_travel_distance_in_meters: number;
+  };
+};
+
 export type Location = [number, number];

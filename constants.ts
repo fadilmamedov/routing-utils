@@ -4,8 +4,10 @@ dotenv.config();
 
 assertEnv("MAPBOX_ACCESS_TOKEN", process.env.MAPBOX_ACCESS_TOKEN);
 assertEnv("API", process.env.API);
+assertEnv("SILVER_API", process.env.SILVER_API);
 
 export const API = process.env.API;
+export const SILVER_API = process.env.SILVER_API;
 export const AUTH_TOKEN = process.env.AUTH_TOKEN;
 export const MAPBOX_ACCESS_TOKEN = process.env.MAPBOX_ACCESS_TOKEN;
 

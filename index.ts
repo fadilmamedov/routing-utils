@@ -6,11 +6,21 @@ import clipboardy from "clipboardy";
 import { table } from "table";
 import dayjs from "dayjs";
 import dayjsDuration from "dayjs/plugin/duration";
+import { Leg } from "@mapbox/mapbox-sdk/services/directions";
 
 import { AUTH_TOKEN } from "./constants";
-import { api, login, fetchServiceAreas, fetchRoutes, fetchAppointments, fetchDirections } from "./api";
+import {
+  api,
+  silverApi,
+  login,
+  fetchServiceAreas,
+  fetchRoutes,
+  fetchAppointments,
+  fetchDirections,
+  fetchRouteAnalysis,
+} from "./api";
 
-import { Route, Location, ServiceArea } from "./types";
+import { Route, Location, ServiceArea, RouteAnalysis } from "./types";
 import { getWarehouseLocation } from "./getWarehouseLocation";
 import { getAppointmentLocation } from "./utils";
 
@@ -30,6 +40,7 @@ async function main() {
     authToken = AUTH_TOKEN;
   }
   api.defaults.headers["Authorization"] = `Bearer ${authToken}`;
+  silverApi.defaults.headers["Authorization"] = `Bearer ${authToken}`;
 
   const { flow } = await inquirer.prompt<{ flow: string }>([
     {
@@ -118,29 +129,14 @@ async function main() {
   const directions = await fetchDirections([warehouseLocation, ...selectedRouteLocations, warehouseLocation]);
   spinner.stop();
 
-  const totalDistanceMeters = _.sumBy(directions, "distance");
-  const totalDistanceKm = totalDistanceMeters / 1000;
+  outputRouteSummary(selectedRoute, directions);
 
-  const totalDurationSeconds = _.sumBy(directions, "duration");
-  const totalDuration = dayjs.duration(totalDurationSeconds, "seconds");
+  spinner.text = "Fetching route analysis...";
+  spinner.start();
+  const routeAnalysis = await fetchRouteAnalysis(selectedRoute);
+  spinner.stop();
 
-  const output = table(
-    [
-      [chalk.green("Route"), chalk.green("Stops"), chalk.green("Total Distance (km)"), chalk.green("Total Duration")],
-      [
-        getRouteLabel(selectedRoute),
-        selectedRoute.route_items.length,
-        totalDistanceKm.toFixed(2),
-        totalDuration.format("HH:mm:ss"),
-      ],
-    ],
-    {
-      columnDefault: {
-        alignment: "center",
-      },
-    }
-  );
-  console.log(output);
+  outputRouteAnalysis(selectedRoute, routeAnalysis);
 }
 
 async function authenticate() {
@@ -187,4 +183,45 @@ function getRouteLabel(route: Route) {
 
 function getServiceAreaLabel(serviceArea: ServiceArea) {
   return `${serviceArea.humanized_name} ${chalk.dim(_.upperCase(serviceArea.name))}`;
+}
+
+function outputRouteSummary(route: Route, directions: Leg[]) {
+  const totalDistanceMeters = _.sumBy(directions, "distance");
+  const totalDistanceKm = totalDistanceMeters / 1000;
+
+  const totalDurationSeconds = _.sumBy(directions, "duration");
+  const totalDuration = dayjs.duration(totalDurationSeconds, "seconds");
+
+  console.log(chalk.blue("Route summary"));
+  const output = table(
+    [
+      [chalk.green("Route"), chalk.green("Total Distance (km)"), chalk.green("Total Duration")],
+      [getRouteLabel(route), totalDistanceKm.toFixed(2), totalDuration.format("HH:mm:ss")],
+    ],
+    {
+      columnDefault: {
+        alignment: "center",
+      },
+    }
+  );
+  console.log(output);
+}
+
+function outputRouteAnalysis(route: Route, routeAnalysis: RouteAnalysis) {
+  const totalDistanceKm = routeAnalysis.analysis.total_travel_distance_in_meters / 1000;
+  const totalDuration = dayjs.duration(routeAnalysis.analysis.total_duration_in_seconds, "seconds");
+
+  console.log(chalk.blue("Route analysis"));
+  const output = table(
+    [
+      [chalk.green("Route"), chalk.green("Total distance (km)"), chalk.green("Total Duration")],
+      [getRouteLabel(route), totalDistanceKm.toFixed(2), totalDuration.format("HH:mm:ss")],
+    ],
+    {
+      columnDefault: {
+        alignment: "center",
+      },
+    }
+  );
+  console.log(output);
 }
