@@ -100,7 +100,7 @@ async function main() {
       message: "Select route",
       type: "list",
       choices: routes.map((route) => ({
-        name: getRouteLabel(route),
+        name: `${getRouteLabel(route)} ${chalk.dim(`[${route.id}]`)}`,
         value: route.id,
       })),
     },
@@ -136,7 +136,11 @@ async function main() {
   const routeAnalysis = await fetchRouteAnalysis(selectedRoute);
   spinner.stop();
 
-  outputRouteAnalysis(selectedRoute, routeAnalysis);
+  if (!routeAnalysis) {
+    console.log(chalk.red("Can't find route analysis for the selected route"));
+  } else {
+    outputRouteAnalysis(selectedRoute, routeAnalysis);
+  }
 }
 
 async function authenticate() {
