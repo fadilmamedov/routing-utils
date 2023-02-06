@@ -32,3 +32,11 @@ npm run main -f GoBolt -s yyz -d 2023-01-20 -r 0c50d9c2-a5b8-11ed-8b30-7fca111d0
 
 - Any option can be skipped. In that case you will be asked to select option value interactively
 - Be careful with options. There is no validation at the moment
+
+### Additional information
+
+#### Vehicle shift times used in Silver
+
+- Heavy & Hard to Handle: `09:00 - 20:00`
+- Parcel: `09:00 - 19:00`
+- Other: `07:00 - 22:00`
