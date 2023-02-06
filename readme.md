@@ -2,7 +2,7 @@
 
 Small utility allowing to validate route parameters: distance, duration etc.
 
-![Screen-Recording-2023-02-06-at-13 44 41](https://user-images.githubusercontent.com/3175922/216954138-85018cc3-5f10-4ede-8416-b518db2037f7.gif)
+![Screen Recording 2023-02-06 at 13 45 30](https://user-images.githubusercontent.com/3175922/216956704-bbc8b80a-7aaf-47af-9bb4-a067a88b2d7d.gif)
 
 ### Running
 
