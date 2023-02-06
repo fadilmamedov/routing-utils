@@ -4,15 +4,15 @@ import { Leg } from "@mapbox/mapbox-sdk/services/directions";
 import { Location } from "../types";
 import { MAPBOX_ACCESS_TOKEN } from "../constants";
 
-export async function fetchDirections(waypoints: Location[]) {
+export async function fetchDirections(waypoints: Location[], departureDateTime?: string) {
   const chunks = getChunks(waypoints);
 
-  const result = await Promise.all(chunks.map((chunk) => fetchChunkDirections(chunk)));
+  const result = await Promise.all(chunks.map((chunk) => fetchChunkDirections(chunk, departureDateTime)));
 
   return result.flat();
 }
 
-async function fetchChunkDirections(waypoints: Location[]) {
+async function fetchChunkDirections(waypoints: Location[], departureDateTime?: string) {
   const coordinates = waypoints.map((waypoint) => waypoint.join(",")).join(";");
 
   const url = querystring.stringifyUrl({
@@ -20,6 +20,7 @@ async function fetchChunkDirections(waypoints: Location[]) {
     query: {
       geometries: "geojson",
       access_token: MAPBOX_ACCESS_TOKEN,
+      depart_at: departureDateTime,
     },
   });
 

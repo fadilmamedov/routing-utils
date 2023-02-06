@@ -30,12 +30,14 @@ type Options = {
   serviceArea: string;
   date: string;
   route: string;
+  departureTime: string;
 };
 const options = commandLineArgs([
   { name: "flow", alias: "f", type: String },
   { name: "serviceArea", alias: "s", type: String },
   { name: "date", alias: "d", type: String },
   { name: "route", alias: "r", type: String },
+  { name: "departureTime", alias: "t", type: String },
 ]) as Options;
 
 dayjs.extend(dayjsDuration);
@@ -95,9 +97,15 @@ const selectedRouteLocations = selectedRoute.route_items.map((routeItem): Locati
   return getAppointmentLocation(appointment);
 });
 
+const departureTime = await promptDepartureTime();
+const departureDateTime = `${selectedDate}T${departureTime}`;
+
 spinner.text = "Fetching directions...";
 spinner.start();
-const directions = await fetchDirections([warehouseLocation, ...selectedRouteLocations, warehouseLocation]);
+const directions = await fetchDirections(
+  [warehouseLocation, ...selectedRouteLocations, warehouseLocation],
+  departureDateTime
+);
 spinner.stop();
 
 outputRouteSummary(selectedRoute, directions);
@@ -113,7 +121,7 @@ if (!routeAnalysis) {
   outputRouteAnalysis(selectedRoute, routeAnalysis);
 }
 
-const command = `npm run main -- -f ${selectedFlow} -s ${selectedServiceArea.name} -d ${selectedDate} -r ${selectedRoute.id}`;
+const command = `npm run main -- -f ${selectedFlow} -s ${selectedServiceArea.name} -d ${selectedDate} -r ${selectedRoute.id} -t ${departureTime}`;
 clipboardy.writeSync(command);
 console.log(`Command: ${chalk.cyan(command)}. Copied to clipboard`);
 
@@ -237,6 +245,22 @@ async function promptRoute() {
   function getRouteById(id: string) {
     return routes.find((route) => route.id === id) as Route;
   }
+}
+
+async function promptDepartureTime() {
+  if (options.departureTime) {
+    outputQuestionAnswer("Select departure time in local timezone", options.departureTime);
+    return options.departureTime;
+  }
+
+  const { departureTime } = await inquirer.prompt<{ departureTime: string }>([
+    {
+      name: "departureTime",
+      message: "Select departure time in local timezone",
+      default: "09:00",
+    },
+  ]);
+  return departureTime;
 }
 
 function outputRouteSummary(route: Route, directions: Leg[]) {
