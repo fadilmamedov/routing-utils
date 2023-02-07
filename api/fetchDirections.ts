@@ -6,7 +6,6 @@ import { MAPBOX_ACCESS_TOKEN } from "../constants";
 
 export async function fetchDirections(waypoints: Location[], departureDateTime?: string) {
   const chunks = getChunks(waypoints);
-
   const result = await Promise.all(chunks.map((chunk) => fetchChunkDirections(chunk, departureDateTime)));
 
   return result.flat();
@@ -42,7 +41,9 @@ function getChunks(route: Location[]) {
     }
   }
 
-  chunks.push(currentChunk);
+  if (currentChunk.length > 1) {
+    chunks.push(currentChunk);
+  }
 
   return chunks;
 }
