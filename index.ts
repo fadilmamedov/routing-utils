@@ -3,11 +3,6 @@ import ora from "ora";
 import chalk from "chalk";
 import inquirer from "inquirer";
 import clipboardy from "clipboardy";
-import commandLineArgs from "command-line-args";
-import { table } from "table";
-import dayjs from "dayjs";
-import dayjsDuration from "dayjs/plugin/duration";
-import { Leg } from "@mapbox/mapbox-sdk/services/directions";
 
 import { AUTH_TOKEN } from "./constants";
 import {
@@ -21,26 +16,12 @@ import {
   fetchRouteAnalysis,
 } from "./api";
 
-import { Route, Location, ServiceArea, RouteAnalysis } from "./types";
+import { Location } from "./types";
 import { getWarehouseLocation } from "./getWarehouseLocation";
 import { getAppointmentLocation } from "./utils";
 
-type Options = {
-  flow: string;
-  serviceArea: string;
-  date: string;
-  route: string;
-  departureTime: string;
-};
-const options = commandLineArgs([
-  { name: "flow", alias: "f", type: String },
-  { name: "serviceArea", alias: "s", type: String },
-  { name: "date", alias: "d", type: String },
-  { name: "route", alias: "r", type: String },
-  { name: "departureTime", alias: "t", type: String },
-]) as Options;
-
-dayjs.extend(dayjsDuration);
+import { promptFlow, promptServiceArea, promptDate, promptRoute, promptDepartureTime } from "./prompts";
+import { outputRouteSummary, outputRouteAnalysis, outputRouteStatistics } from "./output";
 
 const spinner = ora();
 
@@ -62,7 +43,7 @@ spinner.start();
 const serviceAreas = await fetchServiceAreas();
 spinner.stop();
 
-const selectedServiceArea = await promptServiceArea();
+const selectedServiceArea = await promptServiceArea(serviceAreas);
 const selectedDate = await promptDate();
 
 spinner.text = "Fetching routes and appointments...";
@@ -79,7 +60,7 @@ const routes = allRoutes.filter((route) => {
   return route.route_items.every((routeItem) => appointmentsLib[routeItem.appointment_id]);
 });
 
-const selectedRoute = await promptRoute();
+const selectedRoute = await promptRoute(routes);
 
 const selectedRouteAppointments = selectedRoute.route_items.map(
   ({ appointment_id }) => appointmentsLib[appointment_id]
@@ -109,6 +90,7 @@ const directions = await fetchDirections(
 spinner.stop();
 
 outputRouteSummary(selectedRoute, directions);
+outputRouteStatistics(selectedRoute, directions);
 
 spinner.text = "Fetching route analysis...";
 spinner.start();
@@ -161,163 +143,4 @@ async function authenticate() {
       console.log(chalk.red("Invalid credentials. Try again"));
     }
   }
-}
-
-async function promptFlow() {
-  if (options.flow) {
-    outputQuestionAnswer("Select flow", options.flow);
-    return options.flow;
-  }
-
-  const { flow } = await inquirer.prompt<{ flow: string }>([
-    {
-      name: "flow",
-      message: "Select flow",
-      type: "list",
-      choices: ["GoBolt", "IKEA"],
-    },
-  ]);
-  return flow;
-}
-
-async function promptServiceArea() {
-  if (options.serviceArea) {
-    const serviceArea = getServiceAreaByName(options.serviceArea);
-    outputQuestionAnswer("Select service area", getServiceAreaLabel(serviceArea));
-    return serviceArea;
-  }
-
-  let { selectedServiceAreaName } = await inquirer.prompt<{ selectedServiceAreaName: string }>([
-    {
-      name: "selectedServiceAreaName",
-      message: "Select service area",
-      type: "list",
-      default: "yyz",
-      choices: serviceAreas.map((serviceArea) => ({
-        name: getServiceAreaLabel(serviceArea),
-        value: serviceArea.name,
-      })),
-    },
-  ]);
-  return getServiceAreaByName(selectedServiceAreaName);
-
-  function getServiceAreaByName(name: string) {
-    return serviceAreas.find((serviceArea) => serviceArea.name === name) as ServiceArea;
-  }
-}
-
-async function promptDate() {
-  if (options.date) {
-    outputQuestionAnswer("Select date", options.date);
-    return options.date;
-  }
-
-  const { selectedDate } = await inquirer.prompt<{ selectedDate: string }>([
-    {
-      name: "selectedDate",
-      message: "Select date",
-      default: dayjs().format("YYYY-MM-DD"),
-    },
-  ]);
-  return selectedDate;
-}
-
-async function promptRoute() {
-  if (options.route) {
-    const route = getRouteById(options.route);
-    outputQuestionAnswer("Select route", `${getRouteLabel(route)} ${chalk.dim(`[${route.id}]`)}`);
-    return route;
-  }
-
-  const { selectedRouteId } = await inquirer.prompt<{ selectedRouteId: string }>([
-    {
-      name: "selectedRouteId",
-      message: "Select route",
-      type: "list",
-      choices: routes.map((route) => ({
-        name: `${getRouteLabel(route)} ${chalk.dim(`[${route.id}]`)}`,
-        value: route.id,
-      })),
-    },
-  ]);
-  return getRouteById(selectedRouteId);
-
-  function getRouteById(id: string) {
-    return routes.find((route) => route.id === id) as Route;
-  }
-}
-
-async function promptDepartureTime() {
-  if (options.departureTime) {
-    outputQuestionAnswer("Select departure time in local timezone", options.departureTime);
-    return options.departureTime;
-  }
-
-  const { departureTime } = await inquirer.prompt<{ departureTime: string }>([
-    {
-      name: "departureTime",
-      message: "Select departure time in local timezone",
-      default: "09:00",
-    },
-  ]);
-  return departureTime;
-}
-
-function outputRouteSummary(route: Route, directions: Leg[]) {
-  const totalDistanceMeters = _.sumBy(directions, "distance");
-  const totalDistanceKm = totalDistanceMeters / 1000;
-
-  const totalDurationSeconds = _.sumBy(directions, "duration");
-  const totalDuration = dayjs.duration(totalDurationSeconds, "seconds");
-
-  const output = table(
-    [
-      [chalk.green("Route"), chalk.green("Total Distance (km)"), chalk.green("Total Duration")],
-      [getRouteLabel(route), totalDistanceKm.toFixed(2), totalDuration.format("HH:mm:ss")],
-    ],
-    {
-      columnDefault: {
-        alignment: "center",
-      },
-      header: {
-        alignment: "center",
-        content: "Route summary",
-      },
-    }
-  );
-  console.log(output);
-}
-
-function outputRouteAnalysis(route: Route, routeAnalysis: RouteAnalysis) {
-  const totalDistanceKm = routeAnalysis.analysis.total_travel_distance_in_meters / 1000;
-  const totalDuration = dayjs.duration(routeAnalysis.analysis.total_duration_in_seconds, "seconds");
-
-  const output = table(
-    [
-      [chalk.green("Route"), chalk.green("Total distance (km)"), chalk.green("Total Duration")],
-      [getRouteLabel(route), totalDistanceKm.toFixed(2), totalDuration.format("HH:mm:ss")],
-    ],
-    {
-      columnDefault: {
-        alignment: "center",
-      },
-      header: {
-        alignment: "center",
-        content: "Route analysis",
-      },
-    }
-  );
-  console.log(output);
-}
-
-function getRouteLabel(route: Route) {
-  return `R#${route.route_number} - ${route.route_name ?? "No Nickname"}`;
-}
-
-function getServiceAreaLabel(serviceArea: ServiceArea) {
-  return `${serviceArea.humanized_name} ${chalk.dim(_.upperCase(serviceArea.name))}`;
-}
-
-function outputQuestionAnswer(question: string, answer: string) {
-  console.log(chalk.green("?"), question, chalk.cyan(answer));
 }
