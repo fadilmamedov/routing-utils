@@ -1,27 +1,23 @@
-import _ from "lodash";
+import { Leg } from "@mapbox/mapbox-sdk/services/directions";
 import chalk from "chalk";
 import dayjs from "dayjs";
 import dayjsDuration from "dayjs/plugin/duration";
+import _ from "lodash";
 import { table } from "table";
-
-import { Leg } from "@mapbox/mapbox-sdk/services/directions";
-
-import { Route } from "../types";
-import { getRouteLabel } from "../utils";
 
 dayjs.extend(dayjsDuration);
 
-export function outputRouteSummary(route: Route, directions: Leg[]) {
+export function outputRouteSummary(directions: Leg[]) {
   const totalDistanceMeters = _.sumBy(directions, "distance");
   const totalDistanceKm = totalDistanceMeters / 1000;
 
-  const totalDurationSeconds = _.sumBy(directions, "duration");
-  const totalDuration = dayjs.duration(totalDurationSeconds, "seconds");
+  const totalTravelDurationSeconds = _.sumBy(directions, "duration");
+  const totalTravelDuration = dayjs.duration(totalTravelDurationSeconds, "seconds");
 
   const output = table(
     [
-      [chalk.green("Route"), chalk.green("Total Distance (km)"), chalk.green("Total Duration")],
-      [getRouteLabel(route), totalDistanceKm.toFixed(2), totalDuration.format("HH:mm:ss")],
+      [chalk.green("Total Distance (km)"), chalk.green("Total Travel Duration")],
+      [totalDistanceKm.toFixed(2), totalTravelDuration.format("HH:mm:ss")],
     ],
     {
       columnDefault: {

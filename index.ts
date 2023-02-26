@@ -1,27 +1,31 @@
+import chalk from "chalk";
+import clipboardy from "clipboardy";
+import dayjs from "dayjs";
+import dayjsTimezone from "dayjs/plugin/timezone";
+import dayjsUtc from "dayjs/plugin/utc";
+import inquirer from "inquirer";
 import _ from "lodash";
 import ora from "ora";
-import chalk from "chalk";
-import inquirer from "inquirer";
-import clipboardy from "clipboardy";
-
-import { AUTH_TOKEN } from "./constants";
 import {
   api,
-  silverApi,
-  login,
-  fetchServiceAreas,
-  fetchRoutes,
   fetchAppointments,
   fetchDirections,
   fetchRouteAnalysis,
+  fetchRoutes,
+  fetchServiceAreas,
+  fetchVehicleDetails,
+  fetchVehicleHubs,
+  login,
+  silverApi,
 } from "./api";
+import { AUTH_TOKEN } from "./constants";
+import { outputQuestionAnswer, outputRouteStatistics, outputRouteSummary } from "./output";
+import { promptDate, promptDepartureTime, promptFlow, promptRoute, promptServiceArea } from "./prompts";
+import { VehicleHub } from "./types";
+import { getAppointmentLocation, getHubLabel, getHubLocation } from "./utils";
 
-import { Location } from "./types";
-import { getWarehouseLocation } from "./getWarehouseLocation";
-import { getAppointmentLocation } from "./utils";
-
-import { promptFlow, promptServiceArea, promptDate, promptRoute, promptDepartureTime } from "./prompts";
-import { outputRouteSummary, outputRouteAnalysis, outputRouteStatistics } from "./output";
+dayjs.extend(dayjsUtc);
+dayjs.extend(dayjsTimezone);
 
 const spinner = ora();
 
@@ -44,13 +48,13 @@ const serviceAreas = await fetchServiceAreas();
 spinner.stop();
 
 const selectedServiceArea = await promptServiceArea(serviceAreas);
-const selectedDate = await promptDate();
+const selectedDateString = await promptDate();
 
 spinner.text = "Fetching routes and appointments...";
 spinner.start();
 const [allRoutes, appointments] = await Promise.all([
-  fetchRoutes(selectedDate),
-  fetchAppointments(selectedFlow, selectedDate, selectedServiceArea),
+  fetchRoutes(selectedDateString),
+  fetchAppointments(selectedFlow, selectedDateString, selectedServiceArea),
 ]);
 spinner.stop();
 
@@ -65,45 +69,54 @@ const selectedRoute = await promptRoute(routes);
 const selectedRouteAppointments = selectedRoute.route_items.map(
   ({ appointment_id }) => appointmentsLib[appointment_id]
 );
-const selectedRouteFirstAppointment = selectedRouteAppointments[0];
 
-const warehouseLocation = getWarehouseLocation(selectedServiceArea.name, selectedRouteFirstAppointment.delivery_type);
-if (!warehouseLocation) {
-  console.log(chalk.red("Can't find warehouse location"));
-  process.exit(1);
-}
+spinner.text = "Fetching selected route vehicle hub...";
+spinner.start();
+const selectedRouteVehicleHub = await getVehicleHub(selectedRoute.vehicle_id, selectedDateString);
+spinner.stop();
+outputQuestionAnswer("Selected route vehicle hub on the selected date", getHubLabel(selectedRouteVehicleHub));
 
-const selectedRouteLocations = selectedRoute.route_items.map((routeItem): Location => {
-  const appointment = appointmentsLib[routeItem.appointment_id];
-  return getAppointmentLocation(appointment);
-});
+const selectedRouteVehicleHubLocation = getHubLocation(selectedRouteVehicleHub);
+const selectedRouteAppointmentsLocations = selectedRoute.route_items.map((routeItem) =>
+  getAppointmentLocation(appointmentsLib[routeItem.appointment_id])
+);
 
-const departureTime = await promptDepartureTime();
-const departureDateTime = `${selectedDate}T${departureTime}`;
+const departureTimeString = await promptDepartureTime();
+const departureDateTimeLocal = dayjs.tz(
+  `${selectedDateString}T${departureTimeString}`,
+  selectedServiceArea.timezone_iana
+);
 
 spinner.text = "Fetching directions...";
 spinner.start();
-const directions = await fetchDirections(
-  [warehouseLocation, ...selectedRouteLocations, warehouseLocation],
-  departureDateTime
+const selectedRouteDirections = await fetchDirections(
+  [selectedRouteVehicleHubLocation, ...selectedRouteAppointmentsLocations, selectedRouteVehicleHubLocation],
+  departureDateTimeLocal.format("YYYY-MM-DD[T]HH:mm")
 );
 spinner.stop();
 
-outputRouteSummary(selectedRoute, directions);
-outputRouteStatistics(selectedRoute, directions);
-
 spinner.text = "Fetching route analysis...";
 spinner.start();
-const routeAnalysis = await fetchRouteAnalysis(selectedRoute);
+const selectedRouteAnalysis = await fetchRouteAnalysis(selectedRoute);
 spinner.stop();
 
-if (!routeAnalysis) {
+outputRouteSummary(selectedRouteDirections);
+
+if (!selectedRouteAnalysis) {
   console.log(chalk.red("Can't find route analysis for the selected route"));
 } else {
-  outputRouteAnalysis(selectedRoute, routeAnalysis);
+  outputRouteStatistics({
+    route: selectedRoute,
+    appointments: selectedRouteAppointments,
+    directions: selectedRouteDirections,
+    departureDateTimeLocal,
+    routeAnalysis: selectedRouteAnalysis,
+    serviceArea: selectedServiceArea,
+    hub: selectedRouteVehicleHub,
+  });
 }
 
-const command = `npm run main -- -f ${selectedFlow} -s ${selectedServiceArea.name} -d ${selectedDate} -r ${selectedRoute.id} -t ${departureTime}`;
+const command = `npm run main -- -f ${selectedFlow} -s ${selectedServiceArea.name} -d ${selectedDateString} -r ${selectedRoute.id} -t ${departureTimeString}`;
 clipboardy.writeSync(command);
 console.log(`Command: ${chalk.cyan(command)}. Copied to clipboard`);
 
@@ -143,4 +156,11 @@ async function authenticate() {
       console.log(chalk.red("Invalid credentials. Try again"));
     }
   }
+}
+
+async function getVehicleHub(vehicleId: string, date: string) {
+  const vehicle = await fetchVehicleDetails(vehicleId, date);
+  const hubs = await fetchVehicleHubs();
+
+  return hubs.find((hub) => hub.id === vehicle.hub.id) as VehicleHub;
 }

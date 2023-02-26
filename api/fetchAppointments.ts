@@ -1,6 +1,6 @@
 import querystring, { StringifiableRecord } from "query-string";
-import { api } from "./api";
 import { Appointment, ServiceArea } from "../types";
+import { api } from "./api";
 
 const IKEA_ORG_IDS = {
   CA: ["1cc0c40a-43a2-11ea-94b5-df8fd7904ab8", "473ef1d0-2f9e-11ed-ad4a-9b0587508af9"],

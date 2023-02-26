@@ -1,6 +1,6 @@
 import querystring from "query-string";
-import { api } from "./api";
 import { Route } from "../types";
+import { api } from "./api";
 
 export async function fetchRoutes(date: string) {
   const url = querystring.stringifyUrl({

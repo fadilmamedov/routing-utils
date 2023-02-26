@@ -1,8 +1,8 @@
+import { Leg } from "@mapbox/mapbox-sdk/services/directions";
 import axios from "axios";
 import querystring from "query-string";
-import { Leg } from "@mapbox/mapbox-sdk/services/directions";
-import { Location } from "../types";
 import { MAPBOX_ACCESS_TOKEN } from "../constants";
+import { Location } from "../types";
 
 export async function fetchDirections(waypoints: Location[], departureDateTime?: string) {
   const chunks = getChunks(waypoints);

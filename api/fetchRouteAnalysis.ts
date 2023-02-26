@@ -1,5 +1,5 @@
-import { silverApi } from "./api";
 import { Route, RouteAnalysis } from "../types";
+import { silverApi } from "./api";
 
 export async function fetchRouteAnalysis(route: Route) {
   const response = await silverApi.post<RouteAnalysis[]>("routing/route-analysis", {
